@@ -12,6 +12,7 @@ app = FastAPI()
 
 templates = Jinja2Templates(directory = "templates")
 
+# 메인 페이지 호출
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     anybodyThere = {"anybodyThere" : pirCheck}
