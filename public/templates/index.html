@@ -1,0 +1,38 @@
+<html>
+<head>
+    <title>Item Details</title>
+    <style>
+        table {
+            border: 5px solid #000000;
+            width: 500px;
+            height: 500px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <table id="status">
+        <tr>
+            <th>
+                지금 상황
+            </th>
+        </tr>
+    </table>
+    <script>	// HTML 문서에서 JS 사용
+        const jsonDump = '{{ anybodyThere|safe }}';
+        const anybodyThere = JSON.parse(jsonDump).anybodyThere;
+        const status = document.getElementById("status");
+
+        window.addEventListener("load", function() {
+            setInterval(function(){
+                alert(anybodyThere);
+                if (anybodyThere === "1") {
+                    status.style.backgroundColor = "red";
+                } else {
+                    status.style.backgroundColor = "white";
+                }
+            },1000);
+        })
+    </script>
+</body>
+</html>
