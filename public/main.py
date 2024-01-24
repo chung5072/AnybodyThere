@@ -1,7 +1,7 @@
 from typing import Union
 
-# MULTI-THREAD
-import threading
+# CONTROL PIR SENSOR
+import RPi.GPIO as GPIO
 # GET DATA FROM PIR SENSOR AT SPECIFIC TIME
 import time
 # RUN FAST-API SERVER
@@ -14,14 +14,15 @@ from fastapi.templating import Jinja2Templates
 import json
 import websockets
 import asyncio
-# TEST
-import random
 
+# SET PIR SENSOR
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(17, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 # FAST API APP
 app = FastAPI()
 # FAST API HTML TEMPLATE
-templates = Jinja2Templates(directory = "templates")
+templates = Jinja2Templates(directory="templates")
 
 # SET PIR VALUE
 pirVal = 1
@@ -29,27 +30,35 @@ pirVal = 1
 websocket_clients = set()
 
 # GET DATA FROM PIR SENSOR
-def pirCheck():
+async def pirCheck(background_tasks: BackgroundTasks):
     global pirVal
-    # TEST CODE
+    # LOOP FOR GETTING DATA FROM PIR SENSOR
     while True:
-        pirVal = random.randint(0, 1)
+        # PIR SENSOR NUM
+        input = GPIO.input(17)
+        # THERE IS SOMEONE
+        if input == 1:
+             pirVal = 1
+        # NOONE
+        else:
+            pirVal = 0
         # PRINT FOR DEBUG
         print(f"pirVal-test: {pirVal}")
-        asyncio.run()
-        time.sleep(2)
+        await send_pir_value_to_clients()
+        await asyncio.sleep(2)
 
-async def send_pir_value_to_client():
+async def send_pir_value_to_clients():
     if websocket_clients:
         message = json.dumps({"anybodyThere": pirVal})
-        await asyncio.gather(
-            client.send(message) for client in websocket_clients
-        )
+        for client in websocket_clients:
+            await client.send_text(message)
+        print("message send to clients:", message)
 
 # PIR SENSOR FUNCTION BACKGROUN RUNNING
 @app.on_event("startup")
 def startup_event():
-    threading.Thread(target = pirCheck, daemon = True).start()
+    background_tasks = BackgroundTasks()
+    asyncio.create_task(pirCheck(background_tasks))
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -58,22 +67,17 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             await asyncio.sleep(1)
-    except WebSocketDisconnect:
+    except websockets.exceptions.ConnectionClosedOK:
         websocket_clients.remove(websocket)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    # PRINT MESSAGE FOR DEBUG
-    print(f"pirVal-index: {pirVal}")
     return templates.TemplateResponse(
         "./index.html",
         {
-            "request": request,
+            "request": request
         }
     )
 
 if __name__ == "__main__":
-    startup_event()
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-

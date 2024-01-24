@@ -6,8 +6,8 @@
     <style>
         table {
             border: 5px solid #000000;
-            width: 500px;
-            height: 500px;
+            width: 800px;
+            height: 800px;
             margin: 0 auto;
         }
     </style>
@@ -15,19 +15,49 @@
 <body>
     <table id="status">
         <tr>
-            <th>
+            <th colspan="2">
                 NOW STATUS
             </th>
+        </tr>
+        <tr>
+            <td><button id="on_button">ON</button></td>
+            <td><button id="off_button">OFF</button></td>
         </tr>
     </table>
     <script type="text/javascript">
         // ID FOR SHOWING CURRENT STATUS
         const status = document.getElementById("status");
+        // ID FOR BUTTON
+        const on = document.getElementById("on_button");
+        const off = document.getElementById("off_button");
 
         // CREATE WEBSOCKET CONN
-        const socket = new WebSocket("ws://0.0.0.0:8000/ws");
+        const socket = new WebSocket("ws://192.168.45.226:8000/ws");
 
+        // VAR ABOUT VIBE
+        var exec = false;
+
+        // CONDITION ABOUT EXECUTING VIBRATION
+        function vibe(exec, time) {
+            if (exec) {
+                window.navigator.vibrate(time);
+            }
+        }
+        
+        // WINDOW.NAVIGATOR.VIBRATE() NEED TO INTERACTING USER
+        // ON VIBRATION FUNCTION
+        on.addEventListener("click", function() {
+            exec = true;
+        });
+        // OFF VIBRATION FUNCTION
+        off.addEventListener("click", function() {
+            exec = false;
+        });
+
+        // RECEIVE PIR SENSOR VALUE
         socket.addEventListener("message", function(event) {
+            // PRINT FOR DEBUG
+            console.log("received message: ", event.data);
             const data = JSON.parse(event.data)
             const anybodyThere = data.anybodyThere;
 
@@ -38,10 +68,10 @@
             // SHOW STATUS WITH PIR SENSOR DATA
             if (anybodyThere === 1) {
                 status.style.backgroundColor = "red";
-                window.navigator.vibrate(700);
+                vibe(exec, 700);
             } else {
                 status.style.backgroundColor = "white";
-                window.navigator.vibrate(0);
+                vibe(exec, 0);
             }
         });
 
