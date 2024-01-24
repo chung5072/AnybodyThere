@@ -1,6 +1,8 @@
+<!DOCTYPE html>
 <html>
 <head>
     <title>Item Details</title>
+    <meta charset = "UTF-8">
     <style>
         table {
             border: 5px solid #000000;
@@ -14,25 +16,43 @@
     <table id="status">
         <tr>
             <th>
-                지금 상황
+                NOW STATUS
             </th>
         </tr>
     </table>
-    <script>	// HTML 문서에서 JS 사용
-        const jsonDump = '{{ anybodyThere|safe }}';
-        const anybodyThere = JSON.parse(jsonDump).anybodyThere;
+    <script type="text/javascript">
+        // ID FOR SHOWING CURRENT STATUS
         const status = document.getElementById("status");
 
-        window.addEventListener("load", function() {
-            setInterval(function(){
-                alert(anybodyThere);
-                if (anybodyThere === "1") {
-                    status.style.backgroundColor = "red";
-                } else {
-                    status.style.backgroundColor = "white";
-                }
-            },1000);
-        })
+        // CREATE WEBSOCKET CONN
+        const socket = new WebSocket("ws://0.0.0.0:8000/ws");
+
+        socket.addEventListener("message", function(event) {
+            const data = JSON.parse(event.data)
+            const anybodyThere = data.anybodyThere;
+
+            // PRINT FOR DEBUG
+            console.log(typeof anybodyThere);
+            console.log(anybodyThere);
+
+            // SHOW STATUS WITH PIR SENSOR DATA
+            if (anybodyThere === 1) {
+                status.style.backgroundColor = "red";
+                window.navigator.vibrate(700);
+            } else {
+                status.style.backgroundColor = "white";
+                window.navigator.vibrate(0);
+            }
+        });
+
+        // HANDLE SOCKET ERROR
+        socket.addEventListener("error", function(event) {
+            console.error("WebSocket ERROR: ", event);
+        });
+
+        // HANDLE SOCKET CLOSE
+        socket.addEventListener("close", function(event) {
+            console.error("WebSocket CLOSE: ", event);
+        });
     </script>
 </body>
-</html>
