@@ -68,7 +68,7 @@
             console.log("session id:", sessionId);
             console.log("before websocket create");
             // CREATE WEBSOCKET CONN
-            socket = new WebSocket(`ws://192.168.45.226:8000/ws?session_id=${sessionId}`);
+            socket = new WebSocket(`ws://IP_ADDR:PORT_NUM/ws?session_id=${sessionId}`);
             console.log("after websocket create");
 
             socket.addEventListener("message", function(event) {
