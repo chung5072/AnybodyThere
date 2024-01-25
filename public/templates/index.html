@@ -32,47 +32,85 @@
         const off = document.getElementById("off_button");
 
         // CREATE WEBSOCKET CONN
-        const socket = new WebSocket("ws://192.168.45.226:8000/ws");
+        let socket;
+        // KEEP CONN
+        let sessionId;
 
         // VAR ABOUT VIBE
         var exec = false;
 
-        // CONDITION ABOUT EXECUTING VIBRATION
+        async function getOrCreateSessionId() {
+            const existingSessionId = getCookie("session_id");
+            if (existingSessionId) {
+                return existingSessionId;
+            }
+            else {
+                const response = await fetch("/get_or_create_session_id");
+                const data = await response.json();
+                const newSessionId = data.session_id;
+                // SET THE NEW SESSION ID IN COOKIE
+                document.cookie = `session_id=${newSessionId}`;
+                return newSessionId;
+            }
+        }
+
+        // GET COOKIE
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length == 2) {
+                return parts.pop().split(';').shift();
+            }
+        }
+        async function setupWebSocket() {
+            // GET OR CREATE SESSION ID
+            const sessionId = await getOrCreateSessionId();
+            console.log("session id:", sessionId);
+            console.log("before websocket create");
+            // CREATE WEBSOCKET CONN
+            socket = new WebSocket(`ws://192.168.45.226:8000/ws?session_id=${sessionId}`);
+            console.log("after websocket create");
+
+            socket.addEventListener("message", function(event) {
+                // PRINT FOR DEBUG
+                console.log("received message: ", event.data);
+                const data = JSON.parse(event.data)
+                const anybodyThere = data.anybodyThere;
+
+                // SHOW STATUS WITH PIR SENSOR DATA
+                if (anybodyThere === 1) {
+                    status.style.backgroundColor = "red";
+                    vibe(exec, 700);
+                } else {
+                    status.style.backgroundColor = "white";
+                    vibe(exec, 0);
+                }
+            });
+        }
+
+        // VIBE FUNC
         function vibe(exec, time) {
             if (exec) {
                 window.navigator.vibrate(time);
             }
         }
-        
-        // WINDOW.NAVIGATOR.VIBRATE() NEED TO INTERACTING USER
-        // ON VIBRATION FUNCTION
+
+        // INITIAL WEBSOCKET SETTTIN
+        document.addEventListener("DOMContentLoaded", async function() {
+            setupWebSocket();
+        });
+
+        // SET VIBE FUNCTION
         on.addEventListener("click", function() {
             exec = true;
         });
-        // OFF VIBRATION FUNCTION
         off.addEventListener("click", function() {
             exec = false;
         });
 
-        // RECEIVE PIR SENSOR VALUE
-        socket.addEventListener("message", function(event) {
-            // PRINT FOR DEBUG
-            console.log("received message: ", event.data);
-            const data = JSON.parse(event.data)
-            const anybodyThere = data.anybodyThere;
-
-            // PRINT FOR DEBUG
-            console.log(typeof anybodyThere);
-            console.log(anybodyThere);
-
-            // SHOW STATUS WITH PIR SENSOR DATA
-            if (anybodyThere === 1) {
-                status.style.backgroundColor = "red";
-                vibe(exec, 700);
-            } else {
-                status.style.backgroundColor = "white";
-                vibe(exec, 0);
-            }
+        console.log("Global socket object:", socket);
+        socket.addEventListener("open", (event) => {
+            console.log('WebSocket connected:', event);
         });
 
         // HANDLE SOCKET ERROR
@@ -83,6 +121,11 @@
         // HANDLE SOCKET CLOSE
         socket.addEventListener("close", function(event) {
             console.error("WebSocket CLOSE: ", event);
+            // ADD RECONN LOGIN FOR REFRESH ON BROWSER
+            // TRY RECONN AFTER 1 SEC
+            setTimeout(function() {
+                setupWebSocket();
+            }, 1000);
         });
     </script>
 </body>
