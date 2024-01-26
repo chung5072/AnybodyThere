@@ -25,36 +25,51 @@
         </tr>
     </table>
     <script type="text/javascript">
-        // ID FOR SHOWING CURRENT STATUS
+        /**
+         * 웹페이지에서 WebSocket을 사용하여 서버와 통신
+         * PIR 센서의 상태에 따라 웹페이지의 배경색과 진동을 제어하는 역할
+        */
+        /*HTML 요소와 WebSocket 연결 설정*/
+        // HTML 문서에서 status, on, off 등의 요소
         const status = document.getElementById("status");
-        // ID FOR BUTTON
         const on = document.getElementById("on_button");
         const off = document.getElementById("off_button");
-
-        // CREATE WEBSOCKET CONN
+        // WebSocket 연결 및 상태 변수를 정의
         let socket;
-        // KEEP CONN
         let sessionId;
-
-        // VAR ABOUT VIBE
+        // 해당 페이지에서 진동을 줄 것인지 
         var exec = false;
 
+        /*세션 식별자 가져오기 및 생성
+        서버로부터 세션 식별자를 가져오거나 새로 생성하는 비동기 함수
+        웹 페이지에서 세션 식별자를 관리
+        쿠키를 통해 저장하여 해당 세션 식별자를 서버로부터 가져오거나 생성
+        클라이언트와 서버 간의 세션을 유지하고 관리*/
         async function getOrCreateSessionId() {
+            // 세션 식별자는 쿠키를 통해 관리
+            // 쿠키에서 "session_id"라는 이름의 세션 식별자를 가져옴
             const existingSessionId = getCookie("session_id");
+            // 이미 쿠키에 세션 식별자가 있다면 해당 값을 반환하고 함수를 종료
             if (existingSessionId) {
                 return existingSessionId;
             }
             else {
+                // 새로운 세션 식별자 생성 및 설정
+                // 쿠키에 기존 세션 식별자가 없는 경우
+                // 서버에 /get_or_create_session_id 엔드포인트로 비동기 HTTP 요청을 보냅
                 const response = await fetch("/get_or_create_session_id");
+                // 서버는 이 요청을 받아 새로운 세션 식별자를 생성
+                // 해당 값을 JSON 형태로 응답
                 const data = await response.json();
                 const newSessionId = data.session_id;
-                // SET THE NEW SESSION ID IN COOKIE
+                // 응답된 새로운 세션 식별자를 쿠키에 설정
                 document.cookie = `session_id=${newSessionId}`;
                 return newSessionId;
-            }
+            }	  
         }
 
-        // GET COOKIE
+        /*쿠키에서 값 가져오기*/
+        // 쿠키에서 특정 이름의 값 가져오는 함수
         function getCookie(name) {
             const value = `; ${document.cookie}`;
             const parts = value.split(`; ${name}=`);
@@ -62,45 +77,54 @@
                 return parts.pop().split(';').shift();
             }
         }
+
+        /*WebSocket 설정 및 연결*/
+        // WebSocket을 설정하고 연결하는 함수
         async function setupWebSocket() {
-            // GET OR CREATE SESSION ID
+            // 세션 식별자를 가져옴
             const sessionId = await getOrCreateSessionId();
             console.log("session id:", sessionId);
             console.log("before websocket create");
-            // CREATE WEBSOCKET CONN
-            socket = new WebSocket(`ws://192.168.45.226:8000/ws?session_id=${sessionId}`);
+            // 가져온 세션 식별자를 활용해서 WebSocket을 생성하고 서버와 연결
+            socket = new WebSocket(`ws://IP_ADDR:PORT_NUM/ws?session_id=${sessionId}`);
             console.log("after websocket create");
 
+            // WebSocket 메시지 수신 및 처리
+            // WebSocket을 통해 서버로부터 메시지를 수신
             socket.addEventListener("message", function(event) {
-                // PRINT FOR DEBUG
                 console.log("received message: ", event.data);
+                // 해당 메시지를 처리하여 PIR 센서 데이터에 따라 화면 상태를 변경하고 진동을 제어
                 const data = JSON.parse(event.data)
                 const anybodyThere = data.anybodyThere;
 
-                // SHOW STATUS WITH PIR SENSOR DATA
                 if (anybodyThere === 1) {
                     status.style.backgroundColor = "red";
+                    // 클릭을 통해 진동 기능을 켜야 700ms 동안 진동함
                     vibe(exec, 700);
                 } else {
                     status.style.backgroundColor = "white";
+                    // 진동 기능 여부 상관없이 진동이 울리지 않음
                     vibe(exec, 0);
                 }
             });
         }
 
-        // VIBE FUNC
+        /*진동 함수*/
+        // 사용자의 명시적인 상호작용이 없으면 진동 기능이 막히기 때문에 설정
         function vibe(exec, time) {
             if (exec) {
                 window.navigator.vibrate(time);
             }
         }
 
-        // INITIAL WEBSOCKET SETTTIN
+        /*웹페이지 로드 시 초기 WebSocket 설정*/
+        // 웹페이지가 로드될 때 초기 WebSocket 설정을 수행하는 이벤트 핸들러
         document.addEventListener("DOMContentLoaded", async function() {
             setupWebSocket();
         });
 
-        // SET VIBE FUNCTION
+        /*진동 설정 버튼 이벤트 핸들러*/
+        // 화면에서 진동을 켜고 끄는 버튼에 대한 이벤트 핸들러
         on.addEventListener("click", function() {
             exec = true;
         });
@@ -108,21 +132,24 @@
             exec = false;
         });
 
+        /*WebSocket 이벤트 핸들러 및 재연결 로직
+        WebSocket의 여러 이벤트에 대한 핸들러
+        연결 성공, 에러, 연결 종료에 대한 로깅 및 처리*/
         console.log("Global socket object:", socket);
+        // 연결 성공
         socket.addEventListener("open", (event) => {
             console.log('WebSocket connected:', event);
         });
 
-        // HANDLE SOCKET ERROR
+        // 에러
         socket.addEventListener("error", function(event) {
             console.error("WebSocket ERROR: ", event);
         });
 
-        // HANDLE SOCKET CLOSE
+        // 종료
         socket.addEventListener("close", function(event) {
             console.error("WebSocket CLOSE: ", event);
-            // ADD RECONN LOGIN FOR REFRESH ON BROWSER
-            // TRY RECONN AFTER 1 SEC
+            // 연결이 종료된 경우 일정 시간 후에 다시 연결을 시도
             setTimeout(function() {
                 setupWebSocket();
             }, 1000);
